@@ -26,63 +26,44 @@ func TestUsage(t *testing.T) {
 	fmt.Println("cert ID:", certID)
 
 	var (
-		wg   sync.WaitGroup
-		addr string = "127.0.0.1:12345"
+		wg             sync.WaitGroup
+		server, client = net.Pipe()
 	)
 
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
-
-		listener, err := net.Listen("tcp", addr)
-		if err != nil {
-			t.Errorf("could not start TCP listener: %s", err)
-			return
-		}
-
-		conn, err := listener.Accept()
-		if err != nil {
-			t.Errorf("error accepting TCP connection: %s", err)
-			return
-		}
+		defer server.Close()
 
 		// Start the ptls connection
-		pconn, err := Server(conn, cert, []id.ID{certID})
+		_, err := Server(server, cert, []id.ID{certID})
 		if err != nil {
 			t.Errorf("error authenticating to client: %s", err)
-			conn.Close()
 			return
 		}
 
 		// Done!
 		fmt.Println("server connected successfully")
-		pconn.Close()
 	}()
 
 	go func() {
 		defer wg.Done()
-
-		conn, err := net.Dial("tcp", addr)
-		if err != nil {
-			t.Errorf("could not dial server: %s", err)
-			return
-		}
+		defer client.Close()
 
 		// Start the ptls connection
-		pconn, err := Client(conn, cert, []id.ID{certID})
+		_, err := Client(client, cert, []id.ID{certID})
 		if err != nil {
 			t.Errorf("error authenticating to server: %s", err)
-			conn.Close()
 			return
 		}
 
 		// Done!
 		fmt.Println("client connected successfully")
-		pconn.Close()
 	}()
 
 	wg.Wait()
+	fmt.Println("test finished")
 }
 
 const cert = `
